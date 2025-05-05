@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, ChangeEvent } from 'react';
 import { X } from 'lucide-react';
 import Button from './Button';
 import Input from './Input';
@@ -6,7 +6,7 @@ import Input from './Input';
 interface DocumentFormProps {
   onSubmit: (document: {
     titolo: string;
-    data_scadenza: string;
+    data_scadenza: string; 
     file: File;
   }) => void;
   onCancel: () => void;
@@ -20,21 +20,44 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
   const [dataScadenza, setDataScadenza] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFile(e.target.files[0]);
+    } else {
+      setFile(null);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!titolo || !dataScadenza || !file) {
+    if (!titolo || !dataScadenza || !file ) {
       setError('Tutti i campi sono obbligatori');
       return;
     }
+    setIsLoading(true)
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch('/api/uploadFile', {
+        method: 'POST',
+        body: formData,
+      });
+      const { fileId } = await response.json();
+  
+      onSubmit({
+        titolo,
+        data_scadenza: dataScadenza,
+        file: { ...file, id:fileId}
+      });
+    } catch (err) {
+      setError('Errore durante il caricamento del file.');
+    }
 
-    onSubmit({
-      titolo,
-      data_scadenza: dataScadenza,
-      file
-    });
+    setIsLoading(false)
   };
 
   return (
@@ -78,7 +101,7 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
         </label>
         <input
           type="file"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          onChange={handleFileChange}
           className="block w-full text-sm text-gray-500
             file:mr-4 file:py-2 file:px-4
             file:rounded-lg file:border-0
@@ -97,7 +120,7 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
         >
           Annulla
         </Button>
-        <Button type="submit">
+        <Button type="submit" disabled={isLoading}>
           Salva
         </Button>
       </div>

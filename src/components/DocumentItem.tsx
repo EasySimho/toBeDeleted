@@ -3,14 +3,15 @@ import { format, parseISO, isAfter, addDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { File, AlertTriangle, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { deleteFile } from '../lib/utils';
 import Button from './Button';
 import RenewDocumentModal from './RenewDocumentModal';
 
 interface DocumentItemProps {
   id: string;
   titolo: string;
-  dataScadenza: string;
-  filePath: string;
+  dataScadenza: string; 
+  fileId: string;
   tipo?: 'azienda' | 'dipendente';
   onUpdate?: () => void;
 }
@@ -19,7 +20,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
   id,
   titolo,
   dataScadenza,
-  filePath,
+  fileId,
   tipo = 'dipendente',
   onUpdate
 }) => {
@@ -38,19 +39,24 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
 
   const handleDownload = async () => {
     try {
-      setDownloadError('');
-      
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .createSignedUrl(filePath, 60);
+      const response = await fetch(`/api/downloadFile?fileId=${fileId}`, {
+        method: 'GET',
+      });
 
-      if (error) throw error;
-      
-      if (!data?.signedUrl) throw new Error('URL non generato');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      window.open(data.signedUrl, '_blank');
-    } catch (error) {
-      console.error('Error downloading file:', error);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileId;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error('Error downloading file:', err);
       setDownloadError('Errore durante il download del file');
     }
   };
@@ -135,6 +141,17 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
           <Button
             size="sm"
             onClick={() => setIsRenewModalOpen(true)}
+            variant="danger"
+            onClick={async () => {
+              await deleteFile(fileId);
+              if (onUpdate) {
+                onUpdate();
+              }
+            }}
+          >
+            Elimina
+          </Button>
+          <Button
             className={`
               ${shouldShowWarning ? 'bg-red-600 hover:bg-red-700' : ''}
               transition-colors duration-200

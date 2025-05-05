@@ -26,7 +26,7 @@ interface Employee {
     id: string;
     titolo: string;
     data_scadenza: string;
-    file_path: string;
+    fileId: string;
   }[];
   hasExpiringDocuments: boolean;
 }
@@ -34,8 +34,8 @@ interface Employee {
 interface CompanyDocument {
   id: string;
   titolo: string;
-  data_scadenza: string;
-  file_path: string;
+  data_scadenza: string;  
+  fileId: string;
 }
 
 const CompanyPage: React.FC = () => {
@@ -86,7 +86,7 @@ const CompanyPage: React.FC = () => {
         // Fetch company documents
         const { data: documentsData, error: documentsError } = await supabase
           .from('documenti_azienda')
-          .select('*')
+          .select('*, fileId')
           .eq('azienda_id', id);
 
         if (documentsError) throw documentsError;
@@ -145,6 +145,18 @@ const CompanyPage: React.FC = () => {
       // Delete company (cascade will handle related records)
       const { error: deleteError } = await supabase
         .from('aziende')
+        .select('documenti_azienda(fileId)')
+        .eq('id', company.id)
+        .single();
+
+      if (deleteError) throw deleteError;
+
+      //delete files
+      companyData.documenti_azienda.forEach(async (document: {fileId: string}) => {
+        await fetch(`/api/deleteFile?fileId=${document.fileId}`, { method: 'DELETE' });
+      });
+
+      const { error: deleteError } = await supabase.from('aziende')
         .delete()
         .eq('id', company.id);
 
@@ -169,6 +181,10 @@ const CompanyPage: React.FC = () => {
       // Prima elimina tutti i documenti del dipendente
       const { error: deleteDocsError } = await supabase
         .from('documenti')
+        .select('fileId')
+        .eq('dipendente_id', employeeToDelete.id);
+      
+      if(deleteDocsError) throw deleteDocsError;
         .delete()
         .eq('dipendente_id', employeeToDelete.id);
 
@@ -334,7 +350,7 @@ const CompanyPage: React.FC = () => {
                     id={doc.id}
                     titolo={doc.titolo}
                     dataScadenza={doc.data_scadenza}
-                    filePath={doc.file_path}
+                    fileId={doc.fileId}
                     tipo="azienda"
                     onUpdate={() => {
                       // Ricarica i documenti
