@@ -136,46 +136,41 @@ const CompanyPage: React.FC = () => {
     loadCompanyData();
   }, [id]);
 
-  
-
-  const handleDeleteEmployee = async () => {
-    if (!employeeToDelete) return;
+  const handleDeleteCompany = async () => {
+    if (!company?.id) return;
 
     try {
-      setDeleteError('');
       setLoading(true);
-
-      // Prima elimina tutti i documenti del dipendente
-      const { error: deleteDocsError } = await supabase
-        .from('documenti')
-        .select('fileId')
-        .eq('dipendente_id', employeeToDelete.id);
       
-      if(deleteDocsError) throw deleteDocsError;
+      // Delete company (cascade will handle related records)
+      const { error: deleteError } = await supabase
+        .from('aziende')
+        .select('documenti_azienda(fileId)')
+        .eq('id', company.id)
+        .single();
+
+      if (deleteError) throw deleteError;
+
+      //delete files
+      companyData.documenti_azienda.forEach(async (document: {fileId: string}) => {
+        await fetch(`/api/deleteFile?fileId=${document.fileId}`, { method: 'DELETE' });
+      });
+
+      const { error: deleteError } = await supabase.from('aziende')
         .delete()
-        .eq('dipendente_id', employeeToDelete.id);
+        .eq('id', company.id);
 
-      if (deleteDocsError) throw deleteDocsError;
+      if (deleteError) throw deleteError;
 
-      // Poi elimina il dipendente
-      const { error: deleteEmployeeError } = await supabase
-        .from('dipendenti')
-        .delete()
-        .eq('id', employeeToDelete.id);
-
-      if (deleteEmployeeError) throw deleteEmployeeError;
-
-      // Aggiorna la lista dei dipendenti
-      setEmployees(employees.filter(e => e.id !== employeeToDelete.id));
-      setEmployeeToDelete(null);
-    } catch (error) {
-      console.error('Error deleting employee:', error);
-      setDeleteError('Errore durante l\'eliminazione del dipendente');
+      navigate('/');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore durante l\'eliminazione';
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
-
+  
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
