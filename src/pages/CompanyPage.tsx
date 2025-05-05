@@ -136,40 +136,7 @@ const CompanyPage: React.FC = () => {
     loadCompanyData();
   }, [id]);
 
-  const handleDeleteCompany = async () => {
-    if (!company?.id) return;
-
-    try {
-      setLoading(true);
-      
-      // Delete company (cascade will handle related records)
-      const { error: deleteError } = await supabase
-        .from('aziende')
-        .select('documenti_azienda(fileId)')
-        .eq('id', company.id)
-        .single();
-
-      if (deleteError) throw deleteError;
-
-      //delete files
-      companyData.documenti_azienda.forEach(async (document: {fileId: string}) => {
-        await fetch(`/api/deleteFile?fileId=${document.fileId}`, { method: 'DELETE' });
-      });
-
-      const { error: deleteError } = await supabase.from('aziende')
-        .delete()
-        .eq('id', company.id);
-
-      if (deleteError) throw deleteError;
-
-      navigate('/');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Errore durante l\'eliminazione';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  
 
   const handleDeleteEmployee = async () => {
     if (!employeeToDelete) return;
