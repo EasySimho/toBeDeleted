@@ -4,6 +4,7 @@ import { ArrowLeft, FileText } from 'lucide-react';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import Alert from '../components/Alert';
+import { supabase } from '../lib/supabase';
 
 const AddCompanyDocumentPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,35 +18,24 @@ const AddCompanyDocumentPage: React.FC = () => {
   const [nomeAzienda, setNomeAzienda] = useState<string | null>(null);
 
   useEffect(() => {
+    // Fetch the company name using the company ID
     const fetchCompanyName = async () => {
       try {
-        const response = await fetch(`/api/company/${id}`);
-        const contentType = response.headers.get('content-type');
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        if (!contentType || !contentType.includes('application/json')) {
-          throw new Error('Invalid response format. Expected JSON.');
-        }
+        const { data, error } = await supabase
+          .from('aziende')
+          .select('nome')
+          .eq('id', id)
+          .single();
 
-        const data = await response.json();
-        if (!data || typeof data.nome === 'undefined') {
-          throw new Error('Invalid response data structure');
-        }
-
-        setNomeAzienda(data.nome || null);
+        if (error) throw error;
+        setNomeAzienda(data?.nome || null);
       } catch (err) {
-        console.error('Error fetching company name:', err);
-        setError('Errore nel recupero del nome azienda. Verificare la connessione e riprovare.');
-        setNomeAzienda(null);
+        console.error('Errore nel recupero del nome azienda:', err);
+        setError('Errore nel recupero del nome azienda');
       }
     };
 
-    if (id) {
-      fetchCompanyName();
-    }
+    fetchCompanyName();
   }, [id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,20 +50,28 @@ const AddCompanyDocumentPage: React.FC = () => {
     try {
       setLoading(true);
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('titolo', titolo);
-      formData.append('dataScadenza', dataScadenza);
-      formData.append('aziendaId', id!);
+      // Upload file
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${titolo.replace(/\s+/g, '_')}_${dataScadenza}.${fileExt}`;
+      const filePath = `/${nomeAzienda.replace(/\s+/g, '_')}/documenti/${fileName}`;
 
-      const response = await fetch('/api/uploadFile', {
-        method: 'POST',
-        body: formData,
-      });
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
 
-      if (!response.ok) {
-        throw new Error('Error uploading file');
-      }
+      if (uploadError) throw uploadError;
+
+      // Add document record
+      const { error: insertError } = await supabase
+        .from('documenti_azienda')
+        .insert({
+          titolo,
+          data_scadenza: dataScadenza,
+          file_path: filePath,
+          azienda_id: id
+        });
+
+      if (insertError) throw insertError;
 
       navigate(`/company/${id}`);
     } catch (err) {
