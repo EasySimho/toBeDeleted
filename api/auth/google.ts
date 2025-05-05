@@ -1,13 +1,12 @@
-import { OAuth2Client } from 'google-auth-library';
-import { VercelRequest, VercelResponse } from '@vercel/node';
+const { OAuth2Client } = require('google-auth-library');
 
-const client = new OAuth2Client(
+const client = new OAuth2Client( 
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  `${process.env.VERCEL_URL || 'http://localhost:3000'}/api/auth/callback`
+  `${process.env.VERCEL_URL || 'http://localhost:3000'}/api/auth/callback` 
 );
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+module.exports = function handler(req, res) {
   const authUrl = client.generateAuthUrl({
     access_type: 'offline',
     scope: [
@@ -17,4 +16,4 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   res.redirect(authUrl);
-}
+};
