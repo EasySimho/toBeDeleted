@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { File, X } from 'lucide-react';
 import Button from './Button';
 import Input from './Input';
-import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 
 interface RenewDocumentModalProps {
@@ -40,24 +39,20 @@ const RenewDocumentModal: React.FC<RenewDocumentModalProps> = ({
       setLoading(true);
       setError('');
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${currentTitle.replace(/\s+/g, '_')}_${format(new Date(dataScadenza), 'dd-MM-yyyy')}.${fileExt}`;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('documentId', documentId);
+      formData.append('documentType', documentType);
+      formData.append('dataScadenza', dataScadenza);
 
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(fileName, file);
+      const response = await fetch('/api/uploadFile', {
+        method: 'POST',
+        body: formData,
+      });
 
-      if (uploadError) throw uploadError;
-
-      const { error: updateError } = await supabase
-        .from(documentType === 'azienda' ? 'documenti_azienda' : 'documenti')
-        .update({
-          data_scadenza: dataScadenza,
-          file_path: fileName
-        })
-        .eq('id', documentId);
-
-      if (updateError) throw updateError;
+      if (!response.ok) {
+        throw new Error('Errore durante il caricamento del file');
+      }
 
       onSuccess();
       onClose();

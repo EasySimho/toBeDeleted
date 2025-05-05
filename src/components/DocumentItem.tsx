@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { format, parseISO, isAfter, addDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { File, AlertTriangle, Download } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import Button from './Button';
 import RenewDocumentModal from './RenewDocumentModal';
 
@@ -40,15 +39,24 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
     try {
       setDownloadError('');
       
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .createSignedUrl(filePath, 60);
-
-      if (error) throw error;
+      const response = await fetch(`/api/downloadFile?fileId=${filePath}`);
       
-      if (!data?.signedUrl) throw new Error('URL non generato');
+      if (!response.ok) {
+        throw new Error('Errore durante il download del file');
+      }
 
-      window.open(data.signedUrl, '_blank');
+      // Create a blob from the response
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary link and click it to download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = titolo;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
       console.error('Error downloading file:', error);
       setDownloadError('Errore durante il download del file');

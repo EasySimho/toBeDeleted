@@ -1,7 +1,7 @@
-import { IncomingForm } from 'formidable';
-import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
+import { google } from 'googleapis';
 import { VercelRequest, VercelResponse } from '@vercel/node';
+import { IncomingForm } from 'formidable';
 import { createReadStream } from 'fs';
 
 export const config = {
@@ -9,6 +9,8 @@ export const config = {
     bodyParser: false,
   },
 };
+
+const FOLDER_ID = '1yyzmQoolF6E7adWBprt5EH1ouDVh9Ps9'; // Replace with your actual Google Drive folder ID
 
 const client = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
@@ -42,6 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       requestBody: {
         name: file.originalFilename,
         mimeType: file.mimetype,
+        parents: [FOLDER_ID], // Specify the folder ID here
       },
       media: {
         mimeType: file.mimetype,
